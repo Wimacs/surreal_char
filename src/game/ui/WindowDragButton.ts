@@ -103,8 +103,9 @@ function ensureStyle() {
       position: fixed;
       background: transparent;
       z-index: 10000;
-      -webkit-app-region: no-drag;
       pointer-events: auto;
+      -webkit-app-region: no-drag;
+      /* 不设置 -webkit-app-region，让系统默认处理 resize */
     }
 
     .window-resize-handle-top {
@@ -273,20 +274,52 @@ export class WindowDragButton {
     const isWindows = navigator.platform.toLowerCase().includes('win');
     if (!isWindows) return;
 
+    const api = (window as any).electronAPI;
+    if (!api || !api.startResize) {
+      console.warn('Electron API not available for resize');
+      return;
+    }
+
     const handles = [
-      { className: 'window-resize-handle window-resize-handle-top' },
-      { className: 'window-resize-handle window-resize-handle-bottom' },
-      { className: 'window-resize-handle window-resize-handle-left' },
-      { className: 'window-resize-handle window-resize-handle-right' },
-      { className: 'window-resize-handle window-resize-handle-top-left' },
-      { className: 'window-resize-handle window-resize-handle-top-right' },
-      { className: 'window-resize-handle window-resize-handle-bottom-left' },
-      { className: 'window-resize-handle window-resize-handle-bottom-right' },
+      { className: 'window-resize-handle window-resize-handle-top', edge: 'top' },
+      { className: 'window-resize-handle window-resize-handle-bottom', edge: 'bottom' },
+      { className: 'window-resize-handle window-resize-handle-left', edge: 'left' },
+      { className: 'window-resize-handle window-resize-handle-right', edge: 'right' },
+      { className: 'window-resize-handle window-resize-handle-top-left', edge: 'top-left' },
+      { className: 'window-resize-handle window-resize-handle-top-right', edge: 'top-right' },
+      { className: 'window-resize-handle window-resize-handle-bottom-left', edge: 'bottom-left' },
+      { className: 'window-resize-handle window-resize-handle-bottom-right', edge: 'bottom-right' },
     ];
 
-    handles.forEach(({ className }) => {
+    let isResizing = false;
+    let currentEdge = '';
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      e.preventDefault();
+      api.doResize(currentEdge, e.screenX, e.screenY);
+    };
+
+    const handleMouseUp = () => {
+      if (!isResizing) return;
+      isResizing = false;
+      api.stopResize();
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    handles.forEach(({ className, edge }) => {
       const handle = document.createElement('div');
       handle.className = className;
+      handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        isResizing = true;
+        currentEdge = edge;
+        api.startResize(edge, e.screenX, e.screenY);
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+      });
       document.body.appendChild(handle);
     });
   }

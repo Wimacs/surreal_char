@@ -43,7 +43,7 @@ function createWindow(): void {
     mainWindow.webContents.openDevTools();
     
     // If dev server is not ready, wait a bit and retry
-    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    mainWindow.webContents.on('did-fail-load', (_event, errorCode) => {
       if (errorCode === -106 || errorCode === -105) {
         // ERR_INTERNET_DISCONNECTED or ERR_NAME_NOT_RESOLVED - dev server not ready
         console.log('Waiting for Vite dev server...');
@@ -84,6 +84,67 @@ ipcMain.handle('set-pet-mode', (_event, enabled: boolean) => {
     mainWindow.setHasShadow(true);
     mainWindow.setBackgroundColor('#101014');
   }
+});
+
+// Window resize handlers
+let isResizing = false;
+let startX = 0;
+let startY = 0;
+let startWidth = 0;
+let startHeight = 0;
+let startScreenX = 0;
+let startScreenY = 0;
+
+ipcMain.handle('start-resize', (_event, _edge: string, screenX: number, screenY: number) => {
+  if (!mainWindow) return;
+  isResizing = true;
+  const bounds = mainWindow.getBounds();
+  startX = bounds.x;
+  startY = bounds.y;
+  startWidth = bounds.width;
+  startHeight = bounds.height;
+  startScreenX = screenX;
+  startScreenY = screenY;
+});
+
+ipcMain.handle('do-resize', (_event, edge: string, screenX: number, screenY: number) => {
+  if (!mainWindow || !isResizing) return;
+  
+  // Calculate delta in screen coordinates
+  const deltaX = screenX - startScreenX;
+  const deltaY = screenY - startScreenY;
+  
+  let newX = startX;
+  let newY = startY;
+  let newWidth = startWidth;
+  let newHeight = startHeight;
+  
+  // Calculate new bounds based on edge
+  if (edge.includes('right')) {
+    newWidth = Math.max(200, startWidth + deltaX);
+  }
+  if (edge.includes('left')) {
+    newX = startX + deltaX;
+    newWidth = Math.max(200, startWidth - deltaX);
+  }
+  if (edge.includes('bottom')) {
+    newHeight = Math.max(200, startHeight + deltaY);
+  }
+  if (edge.includes('top')) {
+    newY = startY + deltaY;
+    newHeight = Math.max(200, startHeight - deltaY);
+  }
+  
+  mainWindow.setBounds({
+    x: newX,
+    y: newY,
+    width: newWidth,
+    height: newHeight,
+  });
+});
+
+ipcMain.handle('stop-resize', () => {
+  isResizing = false;
 });
 
 app.whenReady().then(() => {

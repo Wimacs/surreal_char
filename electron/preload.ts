@@ -7,5 +7,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setPetMode(enabled: boolean) {
     ipcRenderer.invoke('set-pet-mode', enabled);
   },
+  startResize(edge: string, screenX: number, screenY: number) {
+    ipcRenderer.invoke('start-resize', edge, screenX, screenY);
+  },
+  doResize(edge: string, x: number, y: number) {
+    ipcRenderer.invoke('do-resize', edge, x, y);
+  },
+  stopResize() {
+    ipcRenderer.invoke('stop-resize');
+  },
 });
 
