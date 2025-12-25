@@ -5,9 +5,11 @@ export class SpringCameraController {
   private controls: OrbitControls;
   private restPosition: THREE.Vector3;
   private restTarget: THREE.Vector3;
+  private isLocked = false;
+  private isEnabled = true;
 
   constructor(
-    camera: THREE.PerspectiveCamera,
+    camera: THREE.OrthographicCamera | THREE.PerspectiveCamera,
     domElement: HTMLElement,
     restPosition: THREE.Vector3,
     restTarget: THREE.Vector3,
@@ -27,6 +29,24 @@ export class SpringCameraController {
     this.controls.enableZoom = true;
     // 允许旋转
     this.controls.enableRotate = true;
+
+    // 使用右键旋转（禁用左键和中键）
+    this.controls.mouseButtons = {
+      LEFT: null,
+      MIDDLE: null,
+      RIGHT: THREE.MOUSE.ROTATE,
+    };
+
+    // 限制旋转角度
+    // polarAngle 控制上下角度（0 = 向上，Math.PI = 向下）
+    // 限制在水平方向上下各10度（总共20度范围）
+    const horizontalAngle = Math.PI / 2; // 水平方向（90度）
+    const maxDeviation = (20 * Math.PI) / 180; // 20度转换为弧度
+    this.controls.minPolarAngle = horizontalAngle - maxDeviation / 2; // 水平向上10度
+    this.controls.maxPolarAngle = horizontalAngle + maxDeviation / 2; // 水平向下10度
+
+    // 允许水平旋转360度（不限制 azimuth angle）
+    // 默认情况下 azimuth angle 没有限制，所以不需要设置
   }
 
   setRestPose(position: THREE.Vector3, target: THREE.Vector3) {
@@ -36,8 +56,20 @@ export class SpringCameraController {
   }
 
   setLocked(locked: boolean) {
-    this.controls.enableRotate = !locked;
-    this.controls.enableZoom = !locked;
+    this.isLocked = locked;
+    this.updateControlsState();
+  }
+
+  setEnabled(enabled: boolean) {
+    this.isEnabled = enabled;
+    this.updateControlsState();
+  }
+
+  private updateControlsState() {
+    // Enable controls only if not locked AND enabled
+    const shouldEnable = !this.isLocked && this.isEnabled;
+    this.controls.enableRotate = shouldEnable;
+    this.controls.enableZoom = shouldEnable;
     this.controls.update();
   }
 

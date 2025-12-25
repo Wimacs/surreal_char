@@ -9,18 +9,18 @@ let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 720,
+    width: 600,
+    height: 600,
     title: 'Surreal - VRM Galgame',
     frame: false,
     transparent: true,
-    hasShadow: true,
-    backgroundColor: '#101014',
+    hasShadow: false,
+    backgroundColor: '#00000000',
     titleBarStyle: 'hidden',
     titleBarOverlay: {
-      color: '#101014',
-      symbolColor: '#ffffff',
-      height: 32,
+      color: '#00000000',
+      symbolColor: '#00000000',
+      height: 0,
     },
     autoHideMenuBar: false,
     webPreferences: {

@@ -9,7 +9,7 @@ function ensureStyle() {
   style.textContent = `
     .env-panel {
       position: absolute;
-      top: 80px;
+      bottom: 20px;
       left: 20px;
       display: flex;
       flex-direction: column;
@@ -49,45 +49,13 @@ function ensureStyle() {
 
 export class EnvironmentPanel {
   private root: HTMLDivElement;
-  
-  // Clock Elements
-  private timeEl: HTMLDivElement;
-  private dateEl: HTMLDivElement;
 
   constructor(store: GameStore) {
     ensureStyle();
     this.root = document.createElement('div');
     this.root.className = 'env-panel';
 
-    // Clock Module
-    const clockModule = document.createElement('div');
-    clockModule.className = 'env-clock';
-    
-    this.timeEl = document.createElement('div');
-    this.timeEl.className = 'env-clock__time';
-    
-    this.dateEl = document.createElement('div');
-    this.dateEl.className = 'env-clock__date';
-    
-    clockModule.append(this.timeEl, this.dateEl);
-
-    // Assemble
-    this.root.append(clockModule);
+    // Empty panel - time/date UI removed
     document.body.appendChild(this.root);
-
-    // Start Clock
-    this.updateClock();
-    setInterval(this.updateClock.bind(this), 1000);
-  }
-
-  private updateClock() {
-    const now = new Date();
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    this.timeEl.textContent = `${hours}:${minutes}`;
-    
-    // Simple date: "MON 12"
-    const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-    this.dateEl.textContent = `${days[now.getDay()]} ${now.getDate()}`;
   }
 }

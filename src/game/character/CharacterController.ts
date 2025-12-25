@@ -178,10 +178,47 @@ export class CharacterController {
         oldVRM = null;
       }
 
+      // Save root scale before VRMUtils processing (which may modify scene structure)
+      const rootScale = gltf.scene.scale.clone();
+      
+      // Check for root bone scale in the original GLTF scene
+      // The root bone is typically the first bone in the hierarchy or the hips bone
+      let rootBoneScale: THREE.Vector3 | null = null;
+      gltf.scene.traverse((obj: THREE.Object3D) => {
+        // Check if this is a bone (typically has a name matching VRM bone names)
+        // or if it's the root of the skeleton hierarchy
+        if (obj.type === 'Bone' || (obj as any).isBone === true) {
+          const scale = obj.scale.clone();
+          if (scale.x !== 1 || scale.y !== 1 || scale.z !== 1) {
+            // Found a bone with scale, check if it's the root bone
+            const name = obj.name?.toLowerCase() || '';
+            // Root bone is typically hips, or the first bone (parent is scene or null)
+            if (name.includes('hips') || name.includes('root') || obj.parent === gltf.scene || obj.parent === null) {
+              if (!rootBoneScale) {
+                rootBoneScale = scale;
+                console.log('Found root bone scale in GLTF:', obj.name, scale);
+              }
+            }
+          }
+        }
+      });
+
       VRMUtils.removeUnnecessaryVertices(gltf.scene);
       VRMUtils.combineSkeletons(gltf.scene);
       VRMUtils.combineMorphs(vrm);
       VRMUtils.rotateVRM0(vrm);
+
+      // Apply root bone scale if present
+      // Some VRM models have scale on the root bone/node, which needs to be applied
+      // Priority: rootBoneScale > rootScale (scene root)
+      // This ensures the model renders at the correct size
+      if (rootBoneScale) {
+        console.log('Applying root bone scale to VRM scene:', rootBoneScale);
+        vrm.scene.scale.copy(rootBoneScale);
+      } else if (rootScale.x !== 1 || rootScale.y !== 1 || rootScale.z !== 1) {
+        console.log('Applying root scene scale to VRM scene:', rootScale);
+        vrm.scene.scale.copy(rootScale);
+      }
 
       vrm.scene.traverse((obj: THREE.Object3D) => {
         obj.frustumCulled = false;

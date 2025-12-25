@@ -8,9 +8,7 @@ function ensureStyle() {
   style.id = STYLE_ID;
   style.textContent = `
     .hud-vitals {
-      position: absolute;
-      top: 20px;
-      left: 20px;
+      position: relative;
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -112,7 +110,14 @@ export class HudVitals {
     hrRow.append(this.heartIcon, this.ecgCanvas, this.heartRateValue);
 
     this.root.append(hrRow);
-    document.body.appendChild(this.root);
+    
+    // Try to append to window drag base if it exists, otherwise append to body
+    const dragBaseContent = document.querySelector('.window-drag-base__content');
+    if (dragBaseContent) {
+      dragBaseContent.appendChild(this.root);
+    } else {
+      document.body.appendChild(this.root);
+    }
 
     // Init ECG data
     this.ecgData = new Array(this.ecgCanvas.width).fill(this.ecgCanvas.height / 2);

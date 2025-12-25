@@ -18,10 +18,15 @@ function ensureStyle() {
 
     body.pet-mode .phone-shell,
     body.pet-mode .dialog-overlay,
-    body.pet-mode .env-panel,
-    body.pet-mode .hud-vitals,
     body.pet-mode #drop-hint {
       opacity: 0;
+      pointer-events: none;
+    }
+    
+    /* Keep UI visible in pet mode */
+    body.pet-mode .env-panel,
+    body.pet-mode .hud-vitals {
+      opacity: 1;
       pointer-events: none;
     }
 

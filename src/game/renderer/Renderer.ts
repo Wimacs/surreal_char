@@ -6,7 +6,7 @@ type TickFn = (delta: number) => void;
 
 export class RendererEngine {
   private scene: THREE.Scene;
-  private camera: THREE.PerspectiveCamera;
+  private camera: THREE.OrthographicCamera;
   private renderer: WebGPURenderer | THREE.WebGLRenderer;
   private cameraController!: SpringCameraController;
   private container!: HTMLElement;
@@ -16,10 +16,14 @@ export class RendererEngine {
   private petMode = false;
   private currentBgUrl?: string;
   private readonly defaultBg = new THREE.Color(0x0e1117);
+  private isMouseOverBase = false;
+  private cameraSize = 1; // 正交相机的尺寸（控制视野大小）
 
   constructor() {
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
+    // 正交相机：left, right, top, bottom, near, far
+    // 初始值会在 init 中根据容器尺寸更新
+    this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000);
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.clock = new THREE.Clock();
   }
@@ -48,6 +52,9 @@ export class RendererEngine {
     const restPosition = new THREE.Vector3(0, 1.6, 5);
     const restTarget = new THREE.Vector3(0, 1.6, 0);
     this.camera.position.copy(restPosition);
+    
+    // 更新正交相机的投影矩阵（会在 onResize 中再次更新）
+    this.updateOrthographicCamera();
 
     // Renderer dom
     this.renderer.setSize(container.clientWidth, container.clientHeight);
@@ -72,6 +79,15 @@ export class RendererEngine {
     // Resize handling
     window.addEventListener('resize', this.onResize);
     this.onResize();
+
+    // Mouse position tracking for camera control
+    this.setupMouseTracking();
+    
+    // Initialize camera control state (will be updated when mouse moves)
+    // Use setTimeout to ensure WindowDragButton is created first
+    setTimeout(() => {
+      this.updateCameraControl();
+    }, 0);
 
     this.animate();
   }
@@ -110,6 +126,15 @@ export class RendererEngine {
     this.cameraController?.setRestPose(position, target);
   }
 
+  setCameraSize(size: number) {
+    this.cameraSize = size;
+    this.updateOrthographicCamera();
+  }
+
+  getCameraSize(): number {
+    return this.cameraSize;
+  }
+
   setBackground(url?: string) {
     this.currentBgUrl = url;
     if (this.petMode) {
@@ -137,9 +162,10 @@ export class RendererEngine {
 
   setPetMode(enabled: boolean) {
     this.petMode = enabled;
-    if (this.cameraController) {
-      this.cameraController.setLocked(enabled);
-    }
+    // petMode no longer locks camera - camera control is based on mouse position
+    // if (this.cameraController) {
+    //   this.cameraController.setLocked(enabled);
+    // }
     if (enabled) {
       this.scene.background = null;
       this.renderer.domElement.style.backgroundColor = 'transparent';
@@ -147,6 +173,8 @@ export class RendererEngine {
       this.setBackground(this.currentBgUrl);
     }
     this.updateClearColor();
+    // Update camera control state after pet mode change
+    this.updateCameraControl();
   }
 
   enableDragAndDrop(onVRM: (url: string) => Promise<void>, onFBX: (url: string) => Promise<void>) {
@@ -201,16 +229,88 @@ export class RendererEngine {
     if (!this.container) return;
     const width = this.container.clientWidth;
     const height = this.container.clientHeight;
-    this.camera.aspect = width / height;
-    this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
+    this.updateOrthographicCamera();
   };
+
+  private updateOrthographicCamera() {
+    if (!this.container) return;
+    const width = this.container.clientWidth;
+    const height = this.container.clientHeight;
+    const aspect = width / height;
+    
+    // 根据宽高比调整正交相机的左右和上下边界
+    // cameraSize 控制视野大小，可以根据需要调整
+    this.camera.left = -this.cameraSize * aspect;
+    this.camera.right = this.cameraSize * aspect;
+    this.camera.top = this.cameraSize;
+    this.camera.bottom = -this.cameraSize;
+    this.camera.updateProjectionMatrix();
+  }
 
   private updateClearColor() {
     const alpha = this.petMode ? 0 : 1;
     if (typeof (this.renderer as any).setClearColor === 'function') {
       (this.renderer as any).setClearColor(this.defaultBg, alpha);
     }
+  }
+
+  private setupMouseTracking() {
+    // Check if mouse is over the base (window drag area)
+    const checkMousePosition = (event: MouseEvent) => {
+      const baseElement = document.querySelector('.window-drag-base') as HTMLElement;
+      if (!baseElement) {
+        // If base doesn't exist, enable camera control
+        this.isMouseOverBase = false;
+        this.updateCameraControl();
+        return;
+      }
+
+      const rect = baseElement.getBoundingClientRect();
+      const isOverBase = 
+        event.clientY >= rect.top && 
+        event.clientY <= rect.bottom &&
+        event.clientX >= rect.left && 
+        event.clientX <= rect.right;
+
+      if (this.isMouseOverBase !== isOverBase) {
+        this.isMouseOverBase = isOverBase;
+        this.updateCameraControl();
+      }
+    };
+
+    // Track mouse movement
+    document.addEventListener('mousemove', checkMousePosition);
+    
+    // Setup event listeners for base element (may be created later)
+    const setupBaseListeners = () => {
+      const baseElement = document.querySelector('.window-drag-base');
+      if (baseElement) {
+        baseElement.addEventListener('mouseenter', () => {
+          this.isMouseOverBase = true;
+          this.updateCameraControl();
+        });
+        baseElement.addEventListener('mouseleave', () => {
+          this.isMouseOverBase = false;
+          this.updateCameraControl();
+        });
+      } else {
+        // Retry if base element doesn't exist yet
+        setTimeout(setupBaseListeners, 100);
+      }
+    };
+    
+    setupBaseListeners();
+  }
+
+  private updateCameraControl() {
+    if (!this.cameraController) return;
+    
+    // Enable camera control when mouse is NOT over the base (i.e., over the panel)
+    // Disable when mouse is over the base
+    // Note: petMode only affects background, not camera control when mouse is over panel
+    const shouldEnable = !this.isMouseOverBase;
+    this.cameraController.setEnabled(shouldEnable);
   }
 }
 
