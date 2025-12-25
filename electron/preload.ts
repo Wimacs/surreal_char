@@ -16,5 +16,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stopResize() {
     ipcRenderer.invoke('stop-resize');
   },
+  setAlwaysOnTop(enabled: boolean) {
+    ipcRenderer.invoke('set-always-on-top', enabled);
+  },
+  openSettings() {
+    ipcRenderer.invoke('open-settings');
+  },
 });
 

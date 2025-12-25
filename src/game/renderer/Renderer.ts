@@ -108,6 +108,10 @@ export class RendererEngine {
     return this.container;
   }
 
+  getCameraController() {
+    return this.cameraController;
+  }
+
   addTick(fn: TickFn) {
     this.tickFns.add(fn);
     return () => this.tickFns.delete(fn);

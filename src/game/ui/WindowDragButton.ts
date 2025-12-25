@@ -98,6 +98,95 @@ function ensureStyle() {
       fill: rgba(255, 100, 100, 0.9);
     }
 
+    .window-drag-base__button--active {
+      background: rgba(100, 150, 255, 0.25);
+      box-shadow: 
+        0 1px 2px rgba(0, 0, 0, 0.2),
+        inset 0 2px 4px rgba(100, 150, 255, 0.3),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+    }
+
+    .window-drag-base__button--active:hover {
+      background: rgba(100, 150, 255, 0.3);
+      box-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.25),
+        inset 0 2px 4px rgba(100, 150, 255, 0.35),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+    }
+
+    .window-drag-base__button--active svg {
+      fill: rgba(150, 200, 255, 1);
+      filter: drop-shadow(0 0 4px rgba(100, 150, 255, 0.6));
+    }
+
+    .window-drag-base__button--locked {
+      background: rgba(255, 200, 50, 0.25);
+      box-shadow: 
+        0 1px 2px rgba(0, 0, 0, 0.2),
+        inset 0 2px 4px rgba(255, 200, 50, 0.3),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+    }
+
+    .window-drag-base__button--locked:hover {
+      background: rgba(255, 200, 50, 0.3);
+      box-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.25),
+        inset 0 2px 4px rgba(255, 200, 50, 0.35),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+    }
+
+    .window-drag-base__button--locked svg {
+      fill: rgba(255, 220, 100, 1);
+      filter: drop-shadow(0 0 4px rgba(255, 200, 50, 0.6));
+    }
+
+    .window-lock-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 9999;
+      pointer-events: none;
+      background: transparent;
+      display: none;
+    }
+
+    .window-locked .window-lock-overlay {
+      display: block;
+    }
+
+    .window-locked .window-drag-base__buttons {
+      position: relative;
+      z-index: 10000;
+    }
+
+    .window-locked .window-drag-base__button--lock {
+      position: relative;
+      z-index: 10001;
+      pointer-events: auto;
+    }
+
+    .window-locked .window-drag-base__button:not(.window-drag-base__button--lock) {
+      pointer-events: none;
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .window-locked .window-drag-base {
+      -webkit-app-region: no-drag;
+      cursor: default;
+    }
+
+    .window-locked .window-drag-base__content {
+      -webkit-app-region: no-drag;
+    }
+
+    .window-locked .window-resize-handle {
+      pointer-events: none;
+      display: none;
+    }
+
     /* Window resize handles for Windows - 边缘可调整大小区域 */
     .window-resize-handle {
       position: fixed;
@@ -199,8 +288,17 @@ export class WindowDragButton {
   private root: HTMLDivElement;
   private content: HTMLDivElement;
   private buttons: HTMLDivElement;
+  private settingsButton: HTMLButtonElement;
+  private pinButton: HTMLButtonElement;
+  private lockButton: HTMLButtonElement;
+  private powerButton: HTMLButtonElement;
+  private lockOverlay: HTMLDivElement;
+  private isPinned = false;
+  private isLocked = false;
+  private renderer?: any; // RendererEngine type
 
-  constructor() {
+  constructor(renderer?: any) {
+    this.renderer = renderer;
     ensureStyle();
 
     this.root = document.createElement('div');
@@ -213,57 +311,101 @@ export class WindowDragButton {
     this.buttons.className = 'window-drag-base__buttons';
 
     // Settings button
-    const settingsButton = document.createElement('button');
-    settingsButton.className = 'window-drag-base__button';
-    settingsButton.innerHTML = SETTINGS_SVG;
-    settingsButton.setAttribute('title', '设置');
-    settingsButton.addEventListener('click', (e) => {
+    this.settingsButton = document.createElement('button');
+    this.settingsButton.className = 'window-drag-base__button';
+    this.settingsButton.innerHTML = SETTINGS_SVG;
+    this.settingsButton.setAttribute('title', '设置');
+    this.settingsButton.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      // No logic, just visual feedback
+      // Open settings window
+      const api = (window as any).electronAPI;
+      if (api?.openSettings) {
+        api.openSettings();
+      }
     });
 
     // Power button
-    const powerButton = document.createElement('button');
-    powerButton.className = 'window-drag-base__button window-drag-base__button--power';
-    powerButton.innerHTML = POWER_SVG;
-    powerButton.setAttribute('title', '开关机');
-    powerButton.addEventListener('click', (e) => {
+    this.powerButton = document.createElement('button');
+    this.powerButton.className = 'window-drag-base__button window-drag-base__button--power';
+    this.powerButton.innerHTML = POWER_SVG;
+    this.powerButton.setAttribute('title', '开关机');
+    this.powerButton.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       // No logic, just visual feedback
     });
 
     // Pin button
-    const pinButton = document.createElement('button');
-    pinButton.className = 'window-drag-base__button';
-    pinButton.innerHTML = PIN_SVG;
-    pinButton.setAttribute('title', '置顶');
-    pinButton.addEventListener('click', (e) => {
+    this.pinButton = document.createElement('button');
+    this.pinButton.className = 'window-drag-base__button';
+    this.pinButton.innerHTML = PIN_SVG;
+    this.pinButton.setAttribute('title', '置顶');
+    this.pinButton.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      // No logic, just visual feedback
+      this.togglePin();
     });
 
     // Lock button
-    const lockButton = document.createElement('button');
-    lockButton.className = 'window-drag-base__button';
-    lockButton.innerHTML = LOCK_SVG;
-    lockButton.setAttribute('title', '锁定');
-    lockButton.addEventListener('click', (e) => {
+    this.lockButton = document.createElement('button');
+    this.lockButton.className = 'window-drag-base__button window-drag-base__button--lock';
+    this.lockButton.innerHTML = LOCK_SVG;
+    this.lockButton.setAttribute('title', '锁定');
+    this.lockButton.addEventListener('click', () => {
+      // Don't prevent default or stop propagation here
+      // Let the event bubble so it can be identified by blockEvent
+      this.toggleLock();
+    }, false); // Use bubble phase, not capture
+
+    // Lock overlay to block all input when locked
+    this.lockOverlay = document.createElement('div');
+    this.lockOverlay.className = 'window-lock-overlay';
+    
+    // Block all input events except those on the lock button
+    // Use document-level listeners for better control
+    const blockEvent = (e: Event) => {
+      if (!this.isLocked) return; // Only block when locked
+      
+      // Check if the event is on the lock button using composedPath
+      const path = e.composedPath ? e.composedPath() : [];
+      const isLockButtonEvent = path.some((el: any) => {
+        if (el === this.lockButton) return true;
+        if (el?.classList?.contains?.('window-drag-base__button--lock')) return true;
+        if (el?.closest && typeof el.closest === 'function' && el.closest('.window-drag-base__button--lock')) return true;
+        return false;
+      });
+      
+      if (isLockButtonEvent) {
+        // Don't block events on lock button - let them propagate
+        return;
+      }
+      
+      // Block all other events
       e.preventDefault();
       e.stopPropagation();
-      // No logic, just visual feedback
-    });
+      e.stopImmediatePropagation();
+    };
+    
+    // Use document-level listeners with capture phase
+    document.addEventListener('click', blockEvent, true);
+    document.addEventListener('mousedown', blockEvent, true);
+    document.addEventListener('mouseup', blockEvent, true);
+    document.addEventListener('mousemove', blockEvent, true);
+    document.addEventListener('wheel', blockEvent, { passive: false, capture: true });
+    document.addEventListener('keydown', blockEvent, true);
+    document.addEventListener('keyup', blockEvent, true);
+    document.addEventListener('contextmenu', blockEvent, true);
 
-    this.buttons.appendChild(settingsButton);
-    this.buttons.appendChild(pinButton);
-    this.buttons.appendChild(lockButton);
-    this.buttons.appendChild(powerButton);
+    this.buttons.appendChild(this.settingsButton);
+    this.buttons.appendChild(this.pinButton);
+    this.buttons.appendChild(this.lockButton);
+    this.buttons.appendChild(this.powerButton);
 
     this.root.appendChild(this.content);
     this.root.appendChild(this.buttons);
     document.body.appendChild(this.root);
+    document.body.appendChild(this.lockOverlay);
 
     // 创建窗口边缘的可调整大小区域（Windows 需要）
     this.createResizeHandles();
@@ -295,7 +437,7 @@ export class WindowDragButton {
     let currentEdge = '';
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizing) return;
+      if (!isResizing || this.isLocked) return;
       e.preventDefault();
       api.doResize(currentEdge, e.screenX, e.screenY);
     };
@@ -312,6 +454,12 @@ export class WindowDragButton {
       const handle = document.createElement('div');
       handle.className = className;
       handle.addEventListener('mousedown', (e) => {
+        // Don't allow resize when locked
+        if (this.isLocked) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
         e.preventDefault();
         e.stopPropagation();
         isResizing = true;
@@ -323,6 +471,67 @@ export class WindowDragButton {
       document.body.appendChild(handle);
     });
   }
+
+  private togglePin(): void {
+    this.isPinned = !this.isPinned;
+    
+    // Update UI state
+    if (this.isPinned) {
+      this.pinButton.classList.add('window-drag-base__button--active');
+      this.pinButton.setAttribute('title', '取消置顶');
+    } else {
+      this.pinButton.classList.remove('window-drag-base__button--active');
+      this.pinButton.setAttribute('title', '置顶');
+    }
+    
+    // Call Electron API to set always on top
+    const api = (window as any).electronAPI;
+    if (api?.setAlwaysOnTop) {
+      api.setAlwaysOnTop(this.isPinned);
+    }
+  }
+
+  private toggleLock(): void {
+    this.isLocked = !this.isLocked;
+    
+    // Update UI state
+    if (this.isLocked) {
+      this.lockButton.classList.add('window-drag-base__button--locked');
+      this.lockButton.setAttribute('title', '解锁');
+      document.body.classList.add('window-locked');
+      
+      // Disable other buttons
+      this.settingsButton.disabled = true;
+      this.pinButton.disabled = true;
+      this.powerButton.disabled = true;
+      
+      // Lock camera rotation
+      if (this.renderer?.getCameraController) {
+        this.renderer.getCameraController().setLocked(true);
+      }
+      
+      // Stop any ongoing resize operations
+      const api = (window as any).electronAPI;
+      if (api?.stopResize) {
+        api.stopResize();
+      }
+    } else {
+      this.lockButton.classList.remove('window-drag-base__button--locked');
+      this.lockButton.setAttribute('title', '锁定');
+      document.body.classList.remove('window-locked');
+      
+      // Enable other buttons
+      this.settingsButton.disabled = false;
+      this.pinButton.disabled = false;
+      this.powerButton.disabled = false;
+      
+      // Unlock camera rotation
+      if (this.renderer?.getCameraController) {
+        this.renderer.getCameraController().setLocked(false);
+      }
+    }
+  }
+  
 
   getContentContainer(): HTMLDivElement {
     return this.content;

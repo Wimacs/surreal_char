@@ -6,6 +6,7 @@ import { existsSync } from 'fs';
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 let mainWindow: BrowserWindow | null = null;
+let settingsWindow: BrowserWindow | null = null;
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -145,6 +146,60 @@ ipcMain.handle('do-resize', (_event, edge: string, screenX: number, screenY: num
 
 ipcMain.handle('stop-resize', () => {
   isResizing = false;
+});
+
+ipcMain.handle('set-always-on-top', (_event, enabled: boolean) => {
+  if (!mainWindow) return;
+  mainWindow.setAlwaysOnTop(enabled);
+});
+
+function createSettingsWindow(): void {
+  // If settings window already exists, focus it instead of creating a new one
+  if (settingsWindow) {
+    settingsWindow.focus();
+    return;
+  }
+
+  settingsWindow = new BrowserWindow({
+    width: 600,
+    height: 500,
+    title: '设置',
+    frame: true,
+    transparent: false,
+    hasShadow: true,
+    backgroundColor: '#ffffff',
+    resizable: true,
+    parent: mainWindow || undefined,
+    webPreferences: {
+      preload: join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  // Load the settings page
+  const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+  const distPath = join(__dirname, '../dist/settings.html');
+  const distExists = existsSync(distPath);
+
+  if (isDev || !distExists) {
+    // Development mode: use Vite dev server
+    settingsWindow.loadURL('http://localhost:5173/settings.html');
+    settingsWindow.webContents.openDevTools();
+  } else {
+    // Production mode: load from dist
+    settingsWindow.loadFile(distPath);
+  }
+
+  settingsWindow.setMenuBarVisibility(false);
+
+  settingsWindow.on('closed', () => {
+    settingsWindow = null;
+  });
+}
+
+ipcMain.handle('open-settings', () => {
+  createSettingsWindow();
 });
 
 app.whenReady().then(() => {

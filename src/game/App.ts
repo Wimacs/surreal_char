@@ -101,9 +101,33 @@ export class GameApp {
     createHoverBackground();
 
     // UI overlays - create drag base first so vitals can be embedded in it
-    new WindowDragButton();
+    new WindowDragButton(this.renderer);
     new HudVitals(this.store);
     new EnvironmentPanel(this.store);
+
+    // Load default model and animation
+    try {
+      // Determine the correct path based on environment
+      // In dev: Vite serves public folder at root, so /models/ works
+      // In prod: Electron uses file:// protocol, so ./models/ works
+      const isDev = window.location.protocol === 'http:' || window.location.protocol === 'https:';
+      const modelPath = isDev ? '/models/character.vrm' : './models/character.vrm';
+      const animationPath = isDev ? '/models/Bashful.fbx' : './models/Bashful.fbx';
+      
+      // Load default VRM model
+      await this.character.loadVRM(modelPath);
+      
+      // Load default animation after a short delay to ensure model is ready
+      setTimeout(async () => {
+        try {
+          await this.character.loadMixamoAnimation(animationPath, 'Bashful');
+        } catch (error) {
+          console.warn('Failed to load default animation:', error);
+        }
+      }, 500);
+    } catch (error) {
+      console.warn('Failed to load default model:', error);
+    }
 
   }
 
