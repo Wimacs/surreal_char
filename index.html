@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' http://localhost:* ws://localhost:* blob:; font-src 'self' data: blob:;">
+  <title>Surreal - VRM Galgame</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 100%;
+      height: 100vh;
+      overflow: hidden;
+      background: #000;
+      position: relative;
+    }
+
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      display: block;
+      position: relative;
+      transition: opacity 0.2s;
+    }
+
+    #drop-hint {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: rgba(255, 255, 255, 0.6);
+      font-family: Arial, sans-serif;
+      font-size: 18px;
+      pointer-events: none;
+      z-index: 10;
+      text-align: center;
+      transition: opacity 0.3s;
+    }
+
+    /* Overlay root uses absolute positioning via components */
+
+    #canvas-container.dragover #drop-hint {
+      opacity: 1;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    #canvas-container.has-model #drop-hint {
+      opacity: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container">
+    <div id="drop-hint">拖放 VRM 模型或 Mixamo 动画文件 (.vrm / .fbx)<br>Drop VRM model or Mixamo animation (.vrm / .fbx)</div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
+
