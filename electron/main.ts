@@ -23,6 +23,7 @@ function createWindow(): void {
       height: 0,
     },
     autoHideMenuBar: false,
+    resizable: true, // 明确允许调整窗口大小，确保在 Windows 上也能调整
     webPreferences: {
       preload: join(__dirname, 'preload.js'),
       nodeIntegration: false,

@@ -97,6 +97,79 @@ function ensureStyle() {
     .window-drag-base__button--power svg {
       fill: rgba(255, 100, 100, 0.9);
     }
+
+    /* Window resize handles for Windows - 边缘可调整大小区域 */
+    .window-resize-handle {
+      position: fixed;
+      background: transparent;
+      z-index: 10000;
+      -webkit-app-region: no-drag;
+      pointer-events: auto;
+    }
+
+    .window-resize-handle-top {
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 8px;
+      cursor: ns-resize;
+    }
+
+    .window-resize-handle-bottom {
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 8px;
+      cursor: ns-resize;
+    }
+
+    .window-resize-handle-left {
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 8px;
+      cursor: ew-resize;
+    }
+
+    .window-resize-handle-right {
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 8px;
+      cursor: ew-resize;
+    }
+
+    .window-resize-handle-top-left {
+      top: 0;
+      left: 0;
+      width: 8px;
+      height: 8px;
+      cursor: nwse-resize;
+    }
+
+    .window-resize-handle-top-right {
+      top: 0;
+      right: 0;
+      width: 8px;
+      height: 8px;
+      cursor: nesw-resize;
+    }
+
+    .window-resize-handle-bottom-left {
+      bottom: 0;
+      left: 0;
+      width: 8px;
+      height: 8px;
+      cursor: nesw-resize;
+    }
+
+    .window-resize-handle-bottom-right {
+      bottom: 0;
+      right: 0;
+      width: 8px;
+      height: 8px;
+      cursor: nwse-resize;
+    }
   `;
   document.head.appendChild(style);
 }
@@ -190,6 +263,32 @@ export class WindowDragButton {
     this.root.appendChild(this.content);
     this.root.appendChild(this.buttons);
     document.body.appendChild(this.root);
+
+    // 创建窗口边缘的可调整大小区域（Windows 需要）
+    this.createResizeHandles();
+  }
+
+  private createResizeHandles(): void {
+    // 只在 Windows 上创建边缘调整大小区域
+    const isWindows = navigator.platform.toLowerCase().includes('win');
+    if (!isWindows) return;
+
+    const handles = [
+      { className: 'window-resize-handle window-resize-handle-top' },
+      { className: 'window-resize-handle window-resize-handle-bottom' },
+      { className: 'window-resize-handle window-resize-handle-left' },
+      { className: 'window-resize-handle window-resize-handle-right' },
+      { className: 'window-resize-handle window-resize-handle-top-left' },
+      { className: 'window-resize-handle window-resize-handle-top-right' },
+      { className: 'window-resize-handle window-resize-handle-bottom-left' },
+      { className: 'window-resize-handle window-resize-handle-bottom-right' },
+    ];
+
+    handles.forEach(({ className }) => {
+      const handle = document.createElement('div');
+      handle.className = className;
+      document.body.appendChild(handle);
+    });
   }
 
   getContentContainer(): HTMLDivElement {
