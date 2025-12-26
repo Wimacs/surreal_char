@@ -221,12 +221,17 @@ export class RendererEngine {
     this.container.addEventListener('drop', onDrop);
   }
 
-  private animate = () => {
+  private animate = async () => {
     requestAnimationFrame(this.animate);
     const delta = this.clock.getDelta();
     this.cameraController?.update(delta);
     this.tickFns.forEach((fn) => fn(delta));
-    this.renderer.render(this.scene, this.camera);
+    // WebGPU uses renderAsync, WebGL uses render
+    if ('renderAsync' in this.renderer && typeof this.renderer.renderAsync === 'function') {
+      await (this.renderer as any).renderAsync(this.scene, this.camera);
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
   };
 
   private onResize = () => {

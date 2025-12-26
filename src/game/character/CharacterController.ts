@@ -171,7 +171,7 @@ export class CharacterController {
       if (oldVRM) {
         try {
           scene.remove(oldVRM.scene);
-          oldVRM.dispose?.();
+          VRMUtils.deepDispose(oldVRM.scene);
         } catch (err) {
           console.warn('Failed to dispose previous VRM', err);
         }
@@ -218,6 +218,27 @@ export class CharacterController {
       } else if (rootScale.x !== 1 || rootScale.y !== 1 || rootScale.z !== 1) {
         console.log('Applying root scene scale to VRM scene:', rootScale);
         vrm.scene.scale.copy(rootScale);
+      }
+
+      // Adjust position so root bone (hips) is at origin
+      // Some VRM models are not positioned at scene origin, need to center on root bone
+      const hipsBoneNode = vrm.humanoid?.getNormalizedBoneNode('hips');
+      if (hipsBoneNode) {
+        // Update matrices to ensure transformations are applied
+        vrm.scene.updateMatrixWorld(true);
+        
+        // Get world position of hips bone
+        const hipsWorldPosition = new THREE.Vector3();
+        hipsBoneNode.getWorldPosition(hipsWorldPosition);
+        
+        // Only adjust if hips is not already at origin (with small tolerance)
+        if (hipsWorldPosition.length() > 0.01) {
+          console.log('Adjusting VRM position to center on root bone (hips):', hipsWorldPosition);
+          // Offset the entire scene so hips is at origin
+          vrm.scene.position.sub(hipsWorldPosition);
+          // Update matrix after position change
+          vrm.scene.updateMatrixWorld(true);
+        }
       }
 
       vrm.scene.traverse((obj: THREE.Object3D) => {

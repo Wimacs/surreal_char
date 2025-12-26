@@ -80,9 +80,11 @@ export class HudVitals {
   
   // Animation state
   private ecgData: number[] = [];
-  private ecgPhase = 0;
-  private lastTime = 0;
-  private heartRate = 70; // Default
+  private ecgStartTime = 0; // Use absolute time instead of phase for better sync
+  private heartRate = 120; // Default: 120 bpm with ±5 variation
+  private heartRateVariation = 0; // For natural fluctuation
+  private hasExternalHeartRate = false; // Track if heart rate is set externally
+  private lastHeartRate = 120; // Track previous heart rate to detect changes
 
   constructor(store: GameStore) {
     ensureStyle();
@@ -105,7 +107,7 @@ export class HudVitals {
 
     this.heartRateValue = document.createElement('span');
     this.heartRateValue.className = 'hud-vitals__value';
-    this.heartRateValue.textContent = '70';
+    this.heartRateValue.textContent = '120';
 
     hrRow.append(this.heartIcon, this.ecgCanvas, this.heartRateValue);
 
@@ -121,6 +123,9 @@ export class HudVitals {
 
     // Init ECG data
     this.ecgData = new Array(this.ecgCanvas.width).fill(this.ecgCanvas.height / 2);
+    
+    // Initialize ECG start time
+    this.ecgStartTime = performance.now() / 1000;
 
     // Start Animation
     requestAnimationFrame(this.animate.bind(this));
@@ -130,31 +135,61 @@ export class HudVitals {
       const { vitals } = state.emotion;
       
       // Update Heart Rate
-      const newHr = vitals.heartRate || 70;
-      this.heartRate = newHr;
-      this.heartRateValue.textContent = `${Math.round(newHr)}`;
+      // If no heart rate provided, use 120 with ±5 variation
+      if (vitals.heartRate !== undefined) {
+        this.heartRate = vitals.heartRate;
+        this.hasExternalHeartRate = true;
+      } else {
+        this.hasExternalHeartRate = false;
+        // Will be updated in animate() for smooth continuous variation
+      }
       
-      // Update Animation Speed
-      // Standard beat is approx 60bpm = 1 beat per sec.
-      // Animation duration = 60 / bpm
-      const duration = 60 / Math.max(newHr, 40); // clamp min 40
-      (this.heartIcon.firstElementChild as HTMLElement).style.animation = `heartbeat ${duration}s infinite`;
+      this.updateHeartRateDisplay();
     });
+  }
+
+  private updateHeartRateDisplay() {
+    // If no external heart rate, apply natural fluctuation around 120: 115-125 range
+    if (!this.hasExternalHeartRate) {
+      // Use sine wave for smooth variation
+      const variationTime = Date.now() / 3000; // 3 second cycle
+      this.heartRateVariation = Math.sin(variationTime) * 5; // ±5 bpm
+      this.heartRate = 120 + this.heartRateVariation;
+    }
+    
+    const displayRate = Math.round(this.heartRate);
+    this.heartRateValue.textContent = `${displayRate}`;
+    
+    // Update Animation Speed
+    // Standard beat is approx 60bpm = 1 beat per sec.
+    // Animation duration = 60 / bpm
+    const duration = 60 / Math.max(this.heartRate, 40); // clamp min 40
+    (this.heartIcon.firstElementChild as HTMLElement).style.animation = `heartbeat ${duration}s infinite`;
   }
 
   private animate(time: number) {
     requestAnimationFrame(this.animate.bind(this));
     
-    const dt = (time - this.lastTime) / 1000;
-    this.lastTime = time;
+    const currentTime = time / 1000; // Convert to seconds
+    
+    // Update heart rate display continuously for natural fluctuation
+    this.updateHeartRateDisplay();
+    
+    // Reset ECG phase if heart rate changed significantly
+    if (Math.abs(this.heartRate - this.lastHeartRate) > 0.5) {
+      // Adjust start time to maintain continuity when heart rate changes
+      const currentPhase = (currentTime - this.ecgStartTime) % (60 / Math.max(this.lastHeartRate, 1));
+      this.ecgStartTime = currentTime - currentPhase;
+      this.lastHeartRate = this.heartRate;
+    }
 
     // Simulate ECG wave based on heart rate
     // One beat logic: P-QRS-T complex
     
-    // Generate new data point
-    this.ecgPhase += dt;
+    // Generate new data point using absolute time for better sync
     const beatDuration = 60 / Math.max(this.heartRate, 1);
-    const t = (this.ecgPhase % beatDuration) / beatDuration; // 0..1 progress within a beat
+    const elapsed = currentTime - this.ecgStartTime;
+    const t = (elapsed % beatDuration) / beatDuration; // 0..1 progress within a beat
     
     // Simple synthetic ECG shape
     let y = 0.5; // baseline center (0..1)
